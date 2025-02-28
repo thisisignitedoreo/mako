@@ -86,4 +86,4 @@ Mako has quite a lot of intrinsic commands:
 - `print`: Prints a string as-is. `(a -- )`
 
 These all are invoked the same way macros are expanded: by just using its
-name. Many of the will log to the STDOUT, so you don't need to. :^)
+name. Many of them will log to the STDOUT, so you don't need to. :^)
