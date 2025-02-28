@@ -62,7 +62,7 @@ typedef enum {
     TOKEN__GT_END,
 
     COUNT_TOKENS,
-} TokenType;
+} MakoTokenType; // FUCKING WIN API!
 
 #define token_is_lt(token) (token).type > TOKEN__LT_START && (token).type < TOKEN__LT_END
 #define token_is_wt(token) (token).type > TOKEN__WT_START && (token).type < TOKEN__WT_END
@@ -87,7 +87,7 @@ void lexer_error(Location loc, char* fmt, ...) {
 }
 
 typedef struct {
-    TokenType type;
+    MakoTokenType type;
     String content;
     int value;
     Location loc;
@@ -157,7 +157,7 @@ Token lexer_next_token(Lexer* lexer) {
         Location loc = lexer_loc(lexer);
         String string = sv_from_bytes(lexer->content.bytes + lexer->cursor, 0);
         while (!lexer_done(lexer) && isalnum(lexer_char(lexer))) { string.size++; lexer_chop_char(lexer); }
-        TokenType token_type = TOKEN_WORD;
+        MakoTokenType token_type = TOKEN_WORD;
         if (sv_compare(string, sv("debug"))) token_type = TOKEN_DEBUG;
         if (sv_compare(string, sv("macro"))) token_type = TOKEN_MACRO;
         if (sv_compare(string, sv("cmd"))) token_type = TOKEN_CMD;
