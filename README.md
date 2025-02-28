@@ -1,7 +1,7 @@
 # mako
 Simple stack-based build recipe language. Inspired by
 [porth](https://gitlab.com/tsoding/porth) and
-[nob](https://github.com/tsoding/nob), both by Tsoding.
+[nob](https://github.com/tsoding/nob.h), both by Tsoding.
 
 ## Quickstart
 ```console
