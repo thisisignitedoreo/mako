@@ -44,6 +44,17 @@ isn't necessary. E.g.:
 }
 ```
 
+### While loops
+`while` keyword expects a condition after it, and if it is true it executes the
+code block after it, then loops back to the condition. E.g.:
+```
+"src/" listdir  # example stack: ("main.c" "file1.c" "file1.h" 3) <- top
+while dup 0 > {
+    1 - swap
+    log
+} drop
+```
+
 ### Macros
 Mako has a macro system: they are defined with `macro` keyword, followed by
 macro name and macro body itself, in curly braces, e.g.:
@@ -63,7 +74,7 @@ iswin if {
 ```
 
 ### Intrinsics
-Mako has quite a lot of intrinsic commands:
+Mako has quite a lot of intrinsic commands and operations:
 - `!`: Invert topmost boolean on the stack. `(a -- !a)`
 - `debug`: Crash the program and print the stack. `( -- )`
 - `dup`: Duplicate topmost item on the stack. `(a -- a a)`
@@ -79,6 +90,8 @@ Mako has quite a lot of intrinsic commands:
 - `cd`: Takes a string from the stack and changes CWD to it if it exists.
   `(a -- )`
 - `getcwd`: Returns a string, holding CWD. `( -- a)`
+- `listdir`: Returns a list with directory contents. `(a -- b c d ... n )`
+- `fnmatch`: Returns a list with matched files. `(a -- b c d ... n )`
 - `log`: Prints a string with following `INFO: ` and leading newline at the
   end. `(a -- )`
 - `error`: Prints a string with following `ERROR: ` and leading newline at the
@@ -87,3 +100,7 @@ Mako has quite a lot of intrinsic commands:
 
 These all are invoked the same way macros are expanded: by just using its
 name. Many of them will log to the STDOUT, so you don't need to. :^)
+
+Also, the language has a few math operations:
+- `+`, `-`, `*`, `/`: Binary math operations (a b -- a+/-/*//b)
+- `>=`, `<=`, `>`, `<`, `=`: Integer comparisons (a b -- a=/>/</>=/<=b)
