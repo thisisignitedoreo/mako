@@ -24,11 +24,17 @@ void interpret_bytecode(Bytecode* bc) {
     array_foreach(bc, pc) {
         Operation op = Bytecode_get(bc, pc);
         if (op.type == OP_PUSH_STRING) Stack_push(stack, (StackItem) { .type = STACK_ITEM_STRING, .string = op.operand, .loc = op.loc });
+        else if (op.type == OP_PUSH_INT) Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = op.value, .loc = op.loc });
+        else if (op.type == OP_PUSH_BOOL) Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = op.value, .loc = op.loc });
         else if (op.type == OP_DEBUG) {
             fprintf(stderr, "DEBUG CRASH\nINITIATED AT "LOC_FMT"\nStack state: %zu items\n", LocFmt(op.loc), stack->size);
             array_foreach(stack, i) {
                 StackItem si = Stack_get(stack, i);
-                fprintf(stderr, " %d: `"SV_FMT"` %d\n", si.type, SvFmt(si.string), si.number);
+                if (si.type == STACK_ITEM_STRING) fprintf(stderr, " `"SV_FMT"` ", SvFmt(si.string));
+                if (si.type == STACK_ITEM_INT) fprintf(stderr, " %d ", si.number);
+                if (si.type == STACK_ITEM_BOOL) fprintf(stderr, " %s ", si.number ? "true" : "false");
+                if (si.type == STACK_ITEM_CMD_MARKER) fprintf(stderr, " CMD MARKER ");
+                fprintf(stderr, "\n");
             }
             fprintf(stderr, "STACK ^ TOP\n");
             exit(2);
@@ -71,6 +77,9 @@ void interpret_bytecode(Bytecode* bc) {
             if (stack->size == 0) lexer_error(op.loc, "expected stack to not be empty");
             StackItem si = Stack_get(stack, stack->size-1);
             Stack_push(stack, si);
+        } else if (op.type == OP_DROP) {
+            if (stack->size == 0) lexer_error(op.loc, "expected stack to not be empty");
+            Stack_pop(stack);
         } else if (op.type == OP_SWAP) {
             if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
             StackItem a = Stack_get(stack, stack->size-1);
@@ -98,6 +107,78 @@ void interpret_bytecode(Bytecode* bc) {
             if (si.type != STACK_ITEM_BOOL) lexer_error(op.loc, "expected a boolean on the stack");
             Stack_pop(stack);
             Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = !si.number, .loc = op.loc });
+        } else if (op.type == OP_GTEQ) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = a.number >= b.number, .loc = op.loc });
+        } else if (op.type == OP_LTEQ) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = a.number <= b.number, .loc = op.loc });
+        } else if (op.type == OP_GT) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = a.number > b.number, .loc = op.loc });
+        } else if (op.type == OP_LT) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = a.number < b.number, .loc = op.loc });
+        } else if (op.type == OP_EQ) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_BOOL, .number = a.number == b.number, .loc = op.loc });
+        } else if (op.type == OP_ADD) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = a.number + b.number, .loc = op.loc });
+        } else if (op.type == OP_SUB) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = a.number - b.number, .loc = op.loc });
+        } else if (op.type == OP_MUL) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = a.number * b.number, .loc = op.loc });
+        } else if (op.type == OP_DIV) {
+            if (stack->size <= 1) lexer_error(op.loc, "expected stack to have at least 2 items");
+            StackItem b = Stack_get(stack, stack->size-1);
+            StackItem a = Stack_get(stack, stack->size-2);
+            if (a.type != STACK_ITEM_INT || b.type != STACK_ITEM_INT) lexer_error(op.loc, "expected both values to be integers");
+            Stack_pop(stack);
+            Stack_pop(stack);
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = a.number / b.number, .loc = op.loc });
         } else if (op.type == OP_FILEEXISTS) {
             if (stack->size == 0) lexer_error(op.loc, "expected stack to not be empty");
             StackItem si = Stack_get(stack, stack->size-1);
@@ -133,6 +214,30 @@ void interpret_bytecode(Bytecode* bc) {
             Stack_pop(stack);
             printf("FILEIO: cwd = `"SV_FMT"`\n", SvFmt(cwd));
             Stack_push(stack, (StackItem) { .type = STACK_ITEM_STRING, .string = cwd, .loc = op.loc });
+        } else if (op.type == OP_LISTDIR) {
+            if (stack->size == 0) lexer_error(op.loc, "expected stack to not be empty");
+            StackItem si = Stack_get(stack, stack->size-1);
+            if (si.type != STACK_ITEM_STRING) lexer_error(op.loc, "expected a string on the stack");
+            Stack_pop(stack);
+            StringArray* content = dir_list(si.string, &arena);
+            printf("FILEIO: listed `"SV_FMT"`\n", SvFmt(si.string));
+            array_foreach(content, i) {
+                String dir = StringArray_get(content, i);
+                Stack_push(stack, (StackItem) { .type = STACK_ITEM_STRING, .string = dir, .loc = op.loc });
+            }
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = content->size });
+        } else if (op.type == OP_FNMATCH) {
+            if (stack->size == 0) lexer_error(op.loc, "expected stack to not be empty");
+            StackItem si = Stack_get(stack, stack->size-1);
+            if (si.type != STACK_ITEM_STRING) lexer_error(op.loc, "expected a string on the stack");
+            Stack_pop(stack);
+            StringArray* content = dir_fnmatch(si.string, &arena);
+            printf("FILEIO: fnmatched `"SV_FMT"`\n", SvFmt(si.string));
+            array_foreach(content, i) {
+                String dir = StringArray_get(content, i);
+                Stack_push(stack, (StackItem) { .type = STACK_ITEM_STRING, .string = dir, .loc = op.loc });
+            }
+            Stack_push(stack, (StackItem) { .type = STACK_ITEM_INT, .number = content->size });
         } else if (op.type == OP_LOG) {
             if (stack->size == 0) lexer_error(op.loc, "expected stack to not be empty");
             StackItem si = Stack_get(stack, stack->size-1);

@@ -20,6 +20,15 @@ typedef enum {
     TOKEN_OCURLY,
     TOKEN_CCURLY,
     TOKEN_BANG,
+    TOKEN_GTEQ,
+    TOKEN_LTEQ,
+    TOKEN_GT,
+    TOKEN_LT,
+    TOKEN_EQ,
+    TOKEN_PLUS,
+    TOKEN_MINUS,
+    TOKEN_STAR,
+    TOKEN_SLASH,
 
     TOKEN__LT_END,
 
@@ -27,15 +36,20 @@ typedef enum {
     TOKEN__WT_START,
 
     TOKEN_DEBUG,
+
+    TOKEN_TRUE,
+    TOKEN_FALSE,
     
     TOKEN_MACRO,
     TOKEN_CMD,
     TOKEN_RUN,
 
     TOKEN_IF,
+    TOKEN_WHILE,
     TOKEN_ELSE,
 
     TOKEN_DUP,
+    TOKEN_DROP,
     TOKEN_SWAP,
     TOKEN_OVER,
     TOKEN_ROT,
@@ -45,6 +59,8 @@ typedef enum {
     TOKEN_MKDIR,
     TOKEN_CD,
     TOKEN_GETCWD,
+    TOKEN_LISTDIR,
+    TOKEN_FNMATCH,
     
     TOKEN_LOG,
     TOKEN_ERROR,
@@ -153,24 +169,40 @@ Token lexer_next_token(Lexer* lexer) {
     literal_token(sv("{"), TOKEN_OCURLY)
     literal_token(sv("}"), TOKEN_CCURLY)
     literal_token(sv("!"), TOKEN_BANG)
-    else if (isalpha(lexer_char(lexer))) {
+    literal_token(sv(">="), TOKEN_GTEQ)
+    literal_token(sv("<="), TOKEN_LTEQ)
+    literal_token(sv(">"), TOKEN_GT)
+    literal_token(sv("<"), TOKEN_LT)
+    literal_token(sv("="), TOKEN_EQ)
+    literal_token(sv("+"), TOKEN_PLUS)
+    literal_token(sv("-"), TOKEN_MINUS)
+    literal_token(sv("*"), TOKEN_STAR)
+    literal_token(sv("/"), TOKEN_SLASH)
+    else if (isalpha(lexer_char(lexer)) || lexer_char(lexer) == '_') {
         Location loc = lexer_loc(lexer);
         String string = sv_from_bytes(lexer->content.bytes + lexer->cursor, 0);
-        while (!lexer_done(lexer) && isalnum(lexer_char(lexer))) { string.size++; lexer_chop_char(lexer); }
+        while (!lexer_done(lexer) && (isalnum(lexer_char(lexer)) || lexer_char(lexer) == '_')) { string.size++; lexer_chop_char(lexer); }
+        
         MakoTokenType token_type = TOKEN_WORD;
+        if (sv_compare(string, sv("true"))) token_type = TOKEN_TRUE;
+        if (sv_compare(string, sv("false"))) token_type = TOKEN_FALSE;
         if (sv_compare(string, sv("debug"))) token_type = TOKEN_DEBUG;
         if (sv_compare(string, sv("macro"))) token_type = TOKEN_MACRO;
         if (sv_compare(string, sv("cmd"))) token_type = TOKEN_CMD;
         if (sv_compare(string, sv("run"))) token_type = TOKEN_RUN;
         if (sv_compare(string, sv("if"))) token_type = TOKEN_IF;
+        if (sv_compare(string, sv("while"))) token_type = TOKEN_WHILE;
         if (sv_compare(string, sv("else"))) token_type = TOKEN_ELSE;
         if (sv_compare(string, sv("dup"))) token_type = TOKEN_DUP;
+        if (sv_compare(string, sv("drop"))) token_type = TOKEN_DROP;
         if (sv_compare(string, sv("swap"))) token_type = TOKEN_SWAP;
         if (sv_compare(string, sv("over"))) token_type = TOKEN_OVER;
         if (sv_compare(string, sv("rot"))) token_type = TOKEN_ROT;
         if (sv_compare(string, sv("fileexists"))) token_type = TOKEN_FILEEXISTS;
         if (sv_compare(string, sv("direxists"))) token_type = TOKEN_DIREXISTS;
         if (sv_compare(string, sv("mkdir"))) token_type = TOKEN_MKDIR;
+        if (sv_compare(string, sv("listdir"))) token_type = TOKEN_LISTDIR;
+        if (sv_compare(string, sv("fnmatch"))) token_type = TOKEN_FNMATCH;
         if (sv_compare(string, sv("log"))) token_type = TOKEN_LOG;
         if (sv_compare(string, sv("error"))) token_type = TOKEN_ERROR;
         if (sv_compare(string, sv("print"))) token_type = TOKEN_PRINT;
@@ -229,9 +261,18 @@ TokenArray* lexer_tokenize(Lexer* lexer) {
 
 void lexer_crossreference(TokenArray* tokens) {
     U32Array* stack = U32Array_new(&arena);
+    U32Array* while_stack = U32Array_new(&arena);
     array_foreach(tokens, i) {
         Token token = TokenArray_get(tokens, i);
-        if (token.type == TOKEN_OCURLY) U32Array_push(stack, i);
+        if (token.type == TOKEN_WHILE) U32Array_push(while_stack, i);
+        if (token.type == TOKEN_OCURLY) {
+            U32Array_push(stack, i);
+            if (while_stack->size == 0) continue;
+            size_t index = U32Array_get(while_stack, stack->size-1); U32Array_pop(while_stack);
+            Token while_token = TokenArray_get(tokens, index);
+            while_token.corresponding = i;
+            TokenArray_set(tokens, index, while_token);
+        }
         if (token.type == TOKEN_CCURLY) {
             if (stack->size == 0) lexer_error(token.loc, "stray `}`");
             size_t index = U32Array_get(stack, stack->size-1); U32Array_pop(stack);
@@ -242,5 +283,6 @@ void lexer_crossreference(TokenArray* tokens) {
             TokenArray_set(tokens, index, open);
         }
     }
-    if (stack->size != 0) lexer_error(TokenArray_get(tokens, U32Array_get(stack, 0)).loc, "stray {");
+    if (stack->size != 0) lexer_error(TokenArray_get(tokens, U32Array_get(stack, 0)).loc, "stray `{`");
+    if (while_stack->size != 0) lexer_error(TokenArray_get(tokens, U32Array_get(while_stack, 0)).loc, "expected `{` after `while`");
 }
