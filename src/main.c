@@ -70,7 +70,6 @@ String parse_args(int argc, char** argv, Flags* flags) {
     }
     
     if (!fn_selected) filename = sv(DEFAULT_BUILD_FILE);
-    else filename = shift_args(&argc, &argv);
     
     if (!file_exists(filename)) error("no file named `"SV_FMT"`", SvFmt(filename));
     return filename;
