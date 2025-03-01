@@ -42,7 +42,8 @@ typedef struct {
 array_define(MacroArray, Macro)
 array_implement(MacroArray, Macro)
 
-void parse_bytecode_indexed(TokenArray* tokens, size_t start, size_t end, Bytecode* bc, MacroArray* ma) {
+void parse_bytecode_indexed(TokenArray* tokens, size_t start, size_t end, Bytecode* bc, MacroArray* ma, size_t depth) {
+    if (depth >= 100) error("too much macro expansion depth");
     for (size_t i = start; i < end; i++) {
         Token token = TokenArray_get(tokens, i);
         if (token.type == TOKEN_MACRO) {
@@ -82,7 +83,7 @@ void parse_bytecode_indexed(TokenArray* tokens, size_t start, size_t end, Byteco
             size_t jz_index = bc->size;
             Bytecode_push(bc, (Operation) { .type = OP_JUMPZ, .location = 0, .loc = token.loc });
 
-            parse_bytecode_indexed(tokens, i + 1, ocurly.corresponding, bc, ma);
+            parse_bytecode_indexed(tokens, i + 1, ocurly.corresponding, bc, ma, depth + 1);
 
             Operation jz = Bytecode_get(bc, jz_index);
             jz.location = bc->size;
@@ -101,7 +102,7 @@ void parse_bytecode_indexed(TokenArray* tokens, size_t start, size_t end, Byteco
             size_t j_index = bc->size;
             Bytecode_push(bc, (Operation) { .type = OP_JUMP, .location = 0, .loc = else_token.loc });
 
-            parse_bytecode_indexed(tokens, i + 1, else_ocurly.corresponding, bc, ma);
+            parse_bytecode_indexed(tokens, i + 1, else_ocurly.corresponding, bc, ma, depth + 1);
 
             Operation j = Bytecode_get(bc, j_index);
             j.location = bc->size;
@@ -120,7 +121,7 @@ void parse_bytecode_indexed(TokenArray* tokens, size_t start, size_t end, Byteco
                 }
             }
             if (!macro_found) lexer_error(token.loc, "no such macro as `"SV_FMT"`", SvFmt(token.content));
-            parse_bytecode_indexed(tokens, macro.start, macro.end, bc, ma);
+            parse_bytecode_indexed(tokens, macro.start, macro.end, bc, ma, depth+1);
         } else if (token.type == TOKEN_BANG) Bytecode_push(bc, (Operation) { .type = OP_NOT, .loc = token.loc });
         else if (token_is_wt(token)) {
             // Intrinsic call
@@ -150,6 +151,6 @@ void parse_bytecode_indexed(TokenArray* tokens, size_t start, size_t end, Byteco
 Bytecode* parse_bytecode(TokenArray* tokens) {
     Bytecode* bc = Bytecode_new(&arena);
     MacroArray* ma = MacroArray_new(&arena);
-    parse_bytecode_indexed(tokens, 0, tokens->size, bc, ma);
+    parse_bytecode_indexed(tokens, 0, tokens->size, bc, ma, 0);
     return bc;
 }
